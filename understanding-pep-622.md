@@ -44,18 +44,18 @@ There are some unusual decisions which may be well thought, but I'm really curio
 
 ## What's new
 
-Most new language constructs include new syntax in some way or other, but let's see what's new here syntactically and how much it looks the same or different than other constructs
+Most new language constructs include new syntax in some way or another, but let's see what's new here syntactically and how much it looks the same or different than other constructs
 
 * There are new keywords introduced: `match` and `case`. Although "new keyword" always raises the risk of breaking backwards compatibility, the fact that these keywords are contextual thanks to the new python PEG-based parser (i.e. you still can have variables and functions called `match`) seem to have put at ease virtually everyone (I haven't seen significant discussions around this)
 * The "pattern" is a new important syntactic family (comparable with "expressions" and "statements"), although it certainly has some similarity with both assignment targets and expressions.
 * the dot prefix in constant_patterns look unlike anything else in python syntax (except perhaps completely unrelated relative imports).
 * The `_` is used as a special symbol (unlike the rest of Python where it's a name like any other).
 
-The last two of this items have caused some contention.
+The last two of these items have caused some contention.
 
 ## The pattern sub-language syntax
 
-Patterns have a role where they have to look like a value that you can compare something with (similar to an expression) but also like something that's able to do binding to variables (like an assignment target). As a reminder, python assignments are `<target> = <expression>`, so consider here "target" anything that could go to the left of the equal sign (like `myvar`, `l[0]`, `f(x+1)["key"].attribute[1:]`) and expression anything that could go to the right (Essentially any code denoting a value). This creates some natural ambiguity.
+Patterns have a role where they have to look like a value that you can compare something with (similar to an expression) but also like something that's able to do binding to variables (like an assignment target). As a reminder, python assignments are `<target> = <expression>`, so consider here "target" anything that could go to the left of the equal sign (like `myvar`, `l[0]`, `f(x+1)["key"].attribute[1:]`) and expression anything that could go to the right (essentially any code denoting a value). This creates some natural ambiguity.
 
 The ambiguity is likely less than people think about. In Python , targets and expressions already look similar (in fact, every target is a valid expression), and that doesn't seem to have caused any kind of serious confusion. Patterns share some of the syntax of both; some of them are "target-like" (i.e. they would be syntactically valid as targets), and others are expression like. The following table shows a detailed breakdown:
 
