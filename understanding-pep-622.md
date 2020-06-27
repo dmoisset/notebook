@@ -12,7 +12,7 @@ My take on this PEP is that it's trying to introduce Algebraic Types into Python
 
 In any data representation, there are some "core" operations that are essential and other operations can be built on it. For arrays is indexing (and possibly length); for dictionaries is setting/getting values at a given key, etc. For algebraic types, the core operation is destructuring. So having a way of pattern match is a side effect of having algebraic types. (That possible answer some posters that were asking "why are we mixing up destructuring operations with selection"... the answer is "because that's the way you access an algebraic data type, and this PEP is about algebraic types")
 
-## How do you add algebraic types to Python.
+## How do you add algebraic types to Python?
 
 An important question and required discussion (that's not present on the PEP, but probably should be if it was titled "Algebraic Types for Python") is "how do we map the CS concept to the existing language?". 
 
