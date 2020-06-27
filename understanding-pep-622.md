@@ -33,9 +33,9 @@ def algebraic_type_from_object(o):
     return AlgebraicType(label=o.__class__, record=struct)
 ```
 
-Side note: given my position that this is NOT about matching again, the names of these attributes are protocol may be terrible. Possibly `__struct__` would be a better name, given that the goal of this method is not matching anything but providing a structured version.
+Side note: repeating my position that this is NOT about matching, I think that the names of the protocol methods may be terrible. Possibly `__struct__` would be a better name, given that the goal of this method is not matching anything but providing a structured version.
 
-There are some unusual decisions which may be well thought, but I'm really curious about how this ended up in this part of the design space. Things that caught my attention are:
+There are some unusual decisions which may be well thought, but I'm really curious about how the PEP ended up in this region of the design space. Things that caught my attention are:
 
 * The obvious way (in the sense of first idea coming to mind, not necessarily the best) to get the structure of something, is return something that looks like a structure. I'e having a `__structure__` method on an object that returns a namedtuple, or dict or similar. I can imagine that the authors may want to prevent allocating auxiliar objects during the matching process, but that's just a guess. If that's the case, returning by thefault an object `__dict__` or some sort of mapping view on the attributes could still be fine. It's not clear to me why the "keys" of this structure are placed apart.
 * Something that surprises me (perhaps I've missed something) is that the job of determining the structure doesn't fall in the object, but in the matcher instead. For me having an instance method in object (that classes can override) that returnes the algebraic structure of the value. This creates different destructuring views depending on which matching class you use (something that was mentioned but not discussed a lot in the python-dev list). The `__match__` method could remain in the matcher (i.e, possible a default implementacion that just wraps `isinstance`)
