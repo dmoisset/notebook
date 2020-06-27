@@ -16,6 +16,8 @@ In any data representation, there are some "core" operations that are essential 
 
 An important question and required discussion (that's not present on the PEP, but probably should be if it was titled "Algebraic Types for Python") is "how do we map the CS concept to the existing language?". 
 
+The first approach could be define a separate type hierarchy for algebraic types without touching the existing types, so you have two separate worlds. Python has done that at least twice: namedtuples (which fail with some porperties of algebraic types but are a good approximation) and dataclasses. But that doesn't help you if your data is not stored in namedtuples or dataclasses. So the question the PEP tries to answer is "how we make *everything else* an algebraic type, or at least make it a duck that quacks like an algebraic type.
+
 In CS, a value of an algebraic type consists of a symbolic identifier (sometimes called "tags" or "labels" or "constructors") and a typed tuple of values. The structure of the tuple is determined by the label (I'm not intending this article to be explanatory, but if you check the list example [in wikipedia](https://en.wikipedia.org/wiki/Algebraic_data_type), `Nil` and `Cons` are the labels, nil is associated to a 0-tuple, and `Cons` to a 2 tuple with a value and a list). Some people have mentioned a natural duality between label and type indicators in a polymorphic OO language. In fact dynamic languages like Python are sometimes considered by theorists to have a single main algebraic type (in the static sense) which is a union of values, each using the runtime class as its label. So this is actually a good fit. It also explains the reasoning by the authors: "we're doing a lot of `if ìsinstance()` calls" --> "we're actually selecting labels from algebraic types" --> "this code looks ugly because python doesn't have algebraic types and we're hand-compiling algebraic pattern matching each time". So there's a more or less obvious label, which is the `__class__` attribute of an object (it would be interesting to explore if somethign else could make sense)
 
 The second part of mapping algebraic types to Python is how do we map the "tuple" part. CS classic theory uses a tuple, but for pragmatic reasons, many other languages allows adding names to elements. These are called records in Haskell for example and structs in Rust. In Python we'd normally use either a namedtuple, or a modern dict (order matters) with string keys. And actually if your Python class follows a algebraic data type, the arguments for its constructor should actually correspond with this structure. 
@@ -36,7 +38,7 @@ Side note: given my position that this is NOT about matching again, the names of
 There are some unusual decisions which may be well thought, but I'm really curious about how this ended up in this part of the design space. Things that caught my attention are:
 
 * The obvious way (in the sense of first idea coming to mind, not necessarily the best) to get the structure of something, is return something that looks like a structure. I'e having a `__structure__` method on an object that returns a namedtuple, or dict or similar. I can imagine that the authors may want to prevent allocating auxiliar objects during the matching process, but that's just a guess. If that's the case, returning by thefault an object `__dict__` or some sort of mapping view on the attributes could still be fine. It's not clear to me why the "keys" of this structure are placed apart.
-* Something that surprises me (perhaps I've missed something) is that the job of determining the structure doesn't fall in the object, but in the matcher instead. For me having an instance method in object (that classes can override) that returnes the algebraic structure of the value. This creates different destructuring views depending on which matching class you use (something that was mentioned but not discussed a lot in the python-dev list).
+* Something that surprises me (perhaps I've missed something) is that the job of determining the structure doesn't fall in the object, but in the matcher instead. For me having an instance method in object (that classes can override) that returnes the algebraic structure of the value. This creates different destructuring views depending on which matching class you use (something that was mentioned but not discussed a lot in the python-dev list). The `__match__` method could remain in the matcher (i.e, possible a default implementacion that just wraps `isinstance`)
 
 # About syntax and clarity
 
@@ -45,9 +47,18 @@ There are some unusual decisions which may be well thought, but I'm really curio
 Most new language constructs include new syntax in some way or other, but let's see what's new here syntactically and how much it looks the same or different than other constructs
 
 * There are new keywords introduced: `match` and `case`. Although "new keyword" always raises the risk of breaking backwards compatibility, the fact that these keywords are contextual thanks to the new python PEG-based parser (i.e. you still can have variables and functions called `match`) seem to have put at ease virtually everyone (I haven't seen significant discussions around this)
-* The "pattern" is a new important syntactic family (comparable with "expressions" and "statements"), although it certainly has some similarity with 
+* The "pattern" is a new important syntactic family (comparable with "expressions" and "statements"), although it certainly has some similarity with both assignment targets and expressions.
+* the dot prefix in constant_patterns look unlike anything else in python syntax (except perhaps completely unrelated relative imports).
+* The `_` is used as a special symbol (unlike the rest of Python where it's a name like any other).
 
-## The pattern language syntax
+The last two of this items have caused some contention.
+
+## The pattern sub-language syntax
+
+Patterns have a role where they have to look like a value that you can compare something with (similar to an expression) but also like something that's able to do binding to variables (like an assignment target). As a reminder, python assignments are `<target> = <expression>`, so consider here "target" anything that could go to the left of the equal sign (like `myvar`, `l[0]`, `f(x+1)["key"].attribute[1:]`) and expression anything that could go to the right (Essentially any code denoting a value). This creates some natural ambiguity.
+
+The ambiguity is likely less than people think about. In Python , targets and expressions already look similar (in fact, every target is a valid expression), and that doesn't seem to have caused any kind of serious confusion. Patterns share some of the syntax of both; some of them are "target-like" (i.e. they would be syntactically valid as targets), and others are expression like. The following table shows a detailed breakdown:
+
 
 |Pattern               |example       |target-like|expression-like|
 |----------------------|--------------|:---------:|:-------------:|
@@ -61,6 +72,10 @@ Most new language constructs include new syntax in some way or other, but let's 
 
 \* Only if the component sub-patterns are correspondingly expression-like/target-like
 
-- .constant_pattern is weird
-- evrything looks like an expression
-- half the things do not look like targets
+Looking at this table, a few things stand out:
+* As mentioned before, there's one form of `constant_pattern` that's completely new syntax, so that's bound to raise a few eyebrows. (I'm not saying it's bad, but definitely something that developers will have to get used to)
+* Everything else looks like an expression. But only half the things look like targets. This means that the branches of a `match` statement will look more like values than stuff you assign to. Of the 3 things that don't look like targets (`literal`, `mapping`, and `class`) 2 actually can definitely do binding. That could actually be alleviated by alowing them as targets (which is now a deferred idea)
+* Also some elements are ambiguous (they could be either exp
+
+Other stuff:
+ - patterns as runtime objects?
