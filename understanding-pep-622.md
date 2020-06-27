@@ -2,7 +2,52 @@
 
 After reading the recently proposed [PEP-622](https://www.python.org/dev/peps/pep-0622/) and the discussion that ensued in the [python-dev](https://mail.python.org/archives/list/python-dev@python.org/thread/RFW56R7LTSC3QSNIZPNZ26FZ3ZEUCZ3C/) mailing list I wanted to write some notes. Both to organise my own thoughts but also to share with other people discussing this topic.
 
+## Is this actually about pattern matching?
+
+After a couple of reads, even if this document is titled "structural pattern matching" and revolves a lot around a new matching statement, I don't think the match statement is the main idea in this PEP. The statement itself is explicitly inspired in other languages that have pattern matching statements based on Algebraic Types (you can think of an Algebraic Type in CS terms as a disjoint union of a tagged tuple types, where each tuple element is of an algebraic type themselves; these are mathematician tuples, not python `tuple`). They've been popular way of modelling data since the '70s (and possible earlier in for example LISP without being formalised). 
+
+Why is this important?
+
+My take on this PEP is that it's trying to introduce Algebraic Types into Python. I'm not saying that the PEP is trying to mislead us, only that it may be wrongly titled (or perhaps very correctly titled for a less formal audience.
+
+In any data representation, there are some "core" operations that are essential and other operations can be built on it. For arrays is indexing (and possibly length); for dictionaries is setting/getting values at a given key, etc. For algebraic types, the core operation is destructuring. So having a way of pattern match is a side effect of having algebraic types. (That possible answer some posters that were asking "why are we mixing up destructuring operations with selection"... the answer is "because that's the way you access an algebraic data type, and this PEP is about algebraic types")
+
+## How do you add algebraic types to Python.
+
+An important question and required discussion (that's not present on the PEP, but probably should be if it was titled "Algebraic Types for Python") is "how do we map the CS concept to the existing language?". 
+
+In CS, a value of an algebraic type consists of a symbolic identifier (sometimes called "tags" or "labels" or "constructors") and a typed tuple of values. The structure of the tuple is determined by the label (I'm not intending this article to be explanatory, but if you check the list example [in wikipedia](https://en.wikipedia.org/wiki/Algebraic_data_type), `Nil` and `Cons` are the labels, nil is associated to a 0-tuple, and `Cons` to a 2 tuple with a value and a list). Some people have mentioned a natural duality between label and type indicators in a polymorphic OO language. In fact dynamic languages like Python are sometimes considered by theorists to have a single main algebraic type (in the static sense) which is a union of values, each using the runtime class as its label. So this is actually a good fit. It also explains the reasoning by the authors: "we're doing a lot of `if ìsinstance()` calls" --> "we're actually selecting labels from algebraic types" --> "this code looks ugly because python doesn't have algebraic types and we're hand-compiling algebraic pattern matching each time". So there's a more or less obvious label, which is the `__class__` attribute of an object (it would be interesting to explore if somethign else could make sense)
+
+The second part of mapping algebraic types to Python is how do we map the "tuple" part. CS classic theory uses a tuple, but for pragmatic reasons, many other languages allows adding names to elements. These are called records in Haskell for example and structs in Rust. In Python we'd normally use either a namedtuple, or a modern dict (order matters) with string keys. And actually if your Python class follows a algebraic data type, the arguments for its constructor should actually correspond with this structure. 
+
+This derives in a relevant and non-obvious decision that is made in the PEP and non-explicit: python values are not obviously a dict. For most user defined classes, the `__dict__` attribute actually captures soemthing very similar, but that may not be the abstract state of the value that you'd like to expose. There's also the question of important builtins, but there are some reasonably "standard" ways to map those to algebraic types, and the pep uses those for numeric types, bools, strings (somewhat) and sequences. But for most objects there's not a canonical way to see tham as a "struct/record/namedtuple".
+
+The PEP decides to have a `__match__` protocol, where the `__match_args__` are the field names, and the values of the fields are pulled with the dot operator from whatever `__match__` returns. In other ways our mapping from python objects (with match protocol) to algebraic data type structs is (when matching with a pattern `Matcher(foo, bar, baz)`, in pseudocode:
+
+```python
+def algebraic_type_from_object(o):
+    pre_structured = Matcher.__match__(o)
+    struct = {field: getattr(pre_structured, field) for field in Matcher.__match_args__}
+    return AlgebraicType(label=o.__class__, record=struct)
+```
+
+Side note: given my position that this is NOT about matching again, the names of these attributes are protocol may be terrible. Possibly `__struct__` would be a better name, given that the goal of this method is not matching anything but providing a structured version.
+
+There are some unusual decisions which may be well thought, but I'm really curious about how this ended up in this part of the design space. Things that caught my attention are:
+
+* The obvious way (in the sense of first idea coming to mind, not necessarily the best) to get the structure of something, is return something that looks like a structure. I'e having a `__structure__` method on an object that returns a namedtuple, or dict or similar. I can imagine that the authors may want to prevent allocating auxiliar objects during the matching process, but that's just a guess. If that's the case, returning by thefault an object `__dict__` or some sort of mapping view on the attributes could still be fine. It's not clear to me why the "keys" of this structure are placed apart.
+* Something that surprises me (perhaps I've missed something) is that the job of determining the structure doesn't fall in the object, but in the matcher instead. For me having an instance method in object (that classes can override) that returnes the algebraic structure of the value. This creates different destructuring views depending on which matching class you use (something that was mentioned but not discussed a lot in the python-dev list).
+
 # About syntax and clarity
+
+## What's new
+
+Most new language constructs include new syntax in some way or other, but let's see what's new here syntactically and how much it looks the same or different than other constructs
+
+* There are new keywords introduced: `match` and `case`. Although "new keyword" always raises the risk of breaking backwards compatibility, the fact that these keywords are contextual thanks to the new python PEG-based parser (i.e. you still can have variables and functions called `match`) seem to have put at ease virtually everyone (I haven't seen significant discussions around this)
+* The "pattern" is a new important syntactic family (comparable with "expressions" and "statements"), although it certainly has some similarity with 
+
+## The pattern language syntax
 
 |Pattern               |example       |target-like|expression-like|
 |----------------------|--------------|:---------:|:-------------:|
