@@ -4,7 +4,7 @@ After reading the recently proposed [PEP-622](https://www.python.org/dev/peps/pe
 
 ## Is this actually about pattern matching?
 
-After a couple of reads, even if this document is titled "structural pattern matching" and revolves a lot around a new matching statement, I don't think the match statement is the main idea in this PEP. The statement itself is explicitly inspired in other languages that have pattern matching statements based on Algebraic Types (you can think of an Algebraic Type in CS terms as a disjoint union of a tagged tuple types, where each tuple element is of an algebraic type themselves; these are mathematician tuples, not python `tuple`). They've been popular way of modelling data since the '70s (and possible earlier in for example LISP without being formalised). 
+After a couple of reads, even if this document is titled "structural pattern matching" and revolves a lot around a new matching statement, I don't think the match statement is the main idea in this PEP. The proposed statement itself is explicitly inspired in other languages that have pattern matching statements based on Algebraic Types (you can think of an Algebraic Type in CS terms as a disjoint union of a tagged tuple types, where each tuple element is of an algebraic type themselves; these are mathematician tuples, not python `tuple`). They've been popular way of modelling data since the '70s (and possible earlier in for example LISP without being formalised). 
 
 Why is this important?
 
