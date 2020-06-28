@@ -24,6 +24,8 @@ The second part of mapping algebraic types to Python is how do we map the "tuple
 
 This derives in a relevant and non-obvious decision that is made in the PEP and non-explicit: python values are not obviously a dict. For most user defined classes, the `__dict__` attribute actually captures something very similar, but that may not be the abstract state of the value that you'd like to expose. There's also the question of important builtins, but there are some reasonably "standard" ways to map those to algebraic types, and the pep uses those for numeric types, bools, strings (somewhat) and sequences. But for most objects there's not a canonical way to see tham as a "struct/record/namedtuple".
 
+## The PEP's answer: the match protocol
+
 The PEP decides to have a `__match__` protocol, where the `__match_args__` are the field names, and the values of the fields are pulled with the dot operator from whatever `__match__` returns. In other words, given a pattern `Matcher(foo, bar, baz)`, our mapping from python objects (with match protocol) to algebraic data type structs is in pseudocode:
 
 ```python
@@ -39,6 +41,10 @@ There are some unusual decisions which may be well thought, but I'm really curio
 
 * The obvious way (in the sense of first idea coming to mind, not necessarily the best) to get the structure of something, is return something that looks like a structure. i.e. having a `__structure__` method on an object that returns a namedtuple, or dict or similar. I can imagine that the authors may want to prevent allocating auxiliar objects during the matching process, but that's just a guess. If that's the case, returning by default an object `__dict__` or some sort of mapping view on the attributes could still be fine. It's not clear to me why the "keys" of this structure are placed apart.
 * Something that surprises me (perhaps I've missed something) is that the job of determining the structure doesn't fall in the object, but in the matcher instead. For me there should be an instance method in `object` (that subclasses can override) that returnes the algebraic structure of the value. The PEP as is creates different destructuring views depending on which matching class you use (something that was mentioned but not discussed a lot in the python-dev list). The `__match__` method could remain in the matcher (i.e, possible a default implementation that just wraps `isinstance`)
+
+My take is that `__match__` does not have proper separation of concerns, and tries to be in charge of deciding if something fits a label or not (which looks like a responsability of the pattern) but also how to decompose a given object (which seems responsability of the object being decomposed)
+
+Even if all my opinions above is wrong, the match protocol is generally confusing for me and perhaps the weaker part of the PEP. I understand, and generally agree the goal of "let's not make this unnecessarily complicated" as a reason to not have a more elaborate one. But even more, I think the current one is still too complicated. The matchers could change the default logic to do something that's not an isinstance check. Do we ever need to do that? could that behaviour be left fixed? what are good examples of things we could do by overriding that?  You can also return a proxy object which by default is the matched object; and again, what's a good case for this functionality? why introduce this idea of proxy object? I feel that other PEPs introducing new protocols make a good case for showing situations where you want to add/override the default behaviour, but this PEP doesn't.
 
 # About syntax and clarity
 
@@ -87,15 +93,19 @@ Assuming that making this table more homogenous is a good thing (I think so, but
 
 ![butterfly meme - confusing patterns with targets](https://i.imgflip.com/46lnzc.jpg)
 
-* Making more things to be target-like (by adding these variants to the target syntax, meaning that they would be allowed as an assignment target or looping variables in a `for` loop) certainly would make this table more homogeneity. This is actually mentioned as a deferred idea, and given that we already have some forms of destructuring assignment (being able to nest sequences), it would be surprising to have the mapping versions, and I'd be fine.
-* Adjusting syntax so simple rules can be described (Python currently has "if it looks like an expression
+If everything that looked like a target was assignable and everything that isn't a target wasn't, I believe this syntax would be much easier to accept. There are two ways to do that: change syntax of pattersn... or change syntax of targets
 
+Making more things to be target-like (by adding these variants to the target syntax, meaning that they would be allowed as an assignment target or looping variables in a `for` loop) sounds like something useful. This is actually mentioned as a deferred idea, and given that we already have some forms of destructuring assignment (being able to nest sequences), it would be surprising to have the mapping versions, and I'd be fine. OF course some things are unlikely to become targets, like literal constant.
 
+Normally targets look like expressions because they have the property that right after `<target> = <expression>` you should intuitively be able to say (`assert <target> == <expression>`, resusing target as an expression here). This intuitive framework works well (even if it is not 100% semantically accurate when doing things like `x = x + 1`), and sounds like a desirable property that pattern syntax should have, even for non assignable stuff (so after matching the pattern `42` with `someobj` you can `assert 42 == someobject` even if 42 is not a target). Surprisingly this actually works both for name, constant patterns as defined in the PEP but it works in completely different ways, and that is were some confusion is claimed again in the community.
 
-Other stuff:
- - patterns as runtime objects?
- 
- 
  # Some conclusions
  
- I see that this PEPs try to introduce a few new things:
+ I see that this PEPs try to introduce many new things:
+ 
+ * A new way (protocol) to interpret python data as algebraic types
+ * Some ways of destructuring content (it doesn't propose it universally, but I think it should if they are at all proposed)
+ * A new statement to match+destructure using the above two.
+ 
+I understand why they came together, but I think they all merit more or less independent discussions, making this PEP a bit big and unwieldy to digest.
+ 
