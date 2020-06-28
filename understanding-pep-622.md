@@ -85,7 +85,7 @@ Looking at this table, a few things stand out:
 
 Assuming that making this table more homogenous is a good thing (I think so, but that's 100% in the land of opinion, not fact), what could be done?
 
-![buttefly meme - confusing patterns with targets](https://imgflip.com/i/46lnzc)
+![butterfly meme - confusing patterns with targets](https://imgflip.com/46lnzc.jpg)
 
 * Making more things to be target-like (by adding these variants to the target syntax, meaning that they would be allowed as an assignment target or looping variables in a `for` loop) certainly would make this table more homogeneity. This is actually mentioned as a deferred idea, and given that we already have some forms of destructuring assignment (being able to nest sequences), it would be surprising to have the mapping versions, and I'd be fine.
 * Adjusting syntax so simple rules can be described (Python currently has "if it looks like an expression
