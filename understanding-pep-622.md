@@ -42,12 +42,16 @@ There are some unusual decisions which may be well thought, but I'm really curio
 
 # About syntax and clarity
 
+Discussions about syntax are readibility are hard. Having an opinion and a taste on concrete syntax (this operator we're adding should be prefix or suffix? which actual characters do we use? which keyword) are extremely easy, but everybody has a different one, supported only by personal taste and futurology (which will be more clear? which will confuse less users). I generally prefer to defer on these discussions to people with a long history in the python core dev community because they've generally shown to be good at making good guesses for us. All they need for us is some feedback and ideas, but I won't be pushing for a decision on any specific syntax.
+
+What I *can* do is do some general analysis that can put the alternatives in at least a framework we we can discuss facts that can drive the decision ("the keyword foo is new in this PEP" is a fact. "the keyword foo will be confusing for users" isn't).
+
 ## What's new
 
 Most new language constructs include new syntax in some way or another, but let's see what's new here syntactically and how much it looks the same or different than other constructs
 
 * There are new keywords introduced: `match` and `case`. Although "new keyword" always raises the risk of breaking backwards compatibility, the fact that these keywords are contextual thanks to the new python PEG-based parser (i.e. you still can have variables and functions called `match`) seem to have put at ease virtually everyone (I haven't seen significant discussions around this)
-* The "pattern" is a new important syntactic family (comparable with "expressions" and "statements"), although it certainly has some similarity with both assignment targets and expressions.
+* The "pattern" is a new important syntactic family (comparable with "expressions" and "statements"), although it certainly has some visual similarity with both assignment targets and expressions (by visual I mean "the input strings are the same", even if their interpretations are not).
 * the dot prefix in constant_patterns look unlike anything else in python syntax (except perhaps completely unrelated relative imports).
 * The `_` is used as a special symbol (unlike the rest of Python where it's a name like any other).
 
@@ -57,25 +61,41 @@ The last two of these items have caused some contention.
 
 Patterns have a role where they have to look like a value that you can compare something with (similar to an expression) but also like something that's able to do binding to variables (like an assignment target). As a reminder, python assignments are `<target> = <expression>`, so consider here "target" anything that could go to the left of the equal sign (like `myvar`, `l[0]`, `f(x+1)["key"].attribute[1:]`) and expression anything that could go to the right (essentially any code denoting a value). This creates some natural ambiguity.
 
-The ambiguity is likely less than people think about. In Python , targets and expressions already look similar (in fact, every target is a valid expression), and that doesn't seem to have caused any kind of serious confusion. Patterns share some of the syntax of both; some of them are "target-like" (i.e. they would be syntactically valid as targets), and others are expression like. The following table shows a detailed breakdown:
+The ambiguity is likely less than people think about. In Python , targets and expressions already look similar (in fact, every piece of code denoting a target also denotes a valid expression), and that doesn't seem to have caused any kind of serious confusion. Patterns share some of the syntax of both; some of them are "target-like" (i.e. they would be syntactically valid as targets), and others are expression like. The following table shows a detailed breakdown:
 
 
-|Pattern               |example       |target-like|expression-like|
-|----------------------|--------------|:---------:|:-------------:|
-| name_pattern         |`foo`         |✔️|✔️|
-| literal_pattern      |`42`          |✖️|✔️|
-| constant_pattern(A)  |`Color.BLACK` |✔️|✔️|
-| constant_pattern(B)  |`.BLACK`      |✖️|✖️|
-| sequence_pattern     |`[x,y]`       |✔️*|✔️*|
-| mapping_pattern      |`{"x": x}`    |✖️|✔️*|
-| class_pattern        |`Point(x,y)`  |✖️|✔️*|
+|Pattern               |example       |target-like|expression-like|binds a variable|
+|----------------------|--------------|:---------:|:-------------:|----------------|
+| name_pattern         |`foo`         |✔️|✔️|✔️|
+| literal_pattern      |`42`          |✖️|✔️|✖️|
+| constant_pattern(A)  |`Color.BLACK` |✔️|✔️|✖️|
+| constant_pattern(B)  |`.BLACK`      |✖️|✖️|✖️|
+| sequence_pattern     |`[x,y]`       |✔️*|✔️*|✔️†|
+| mapping_pattern      |`{"x": x}`    |✖️|✔️*|✔️†|
+| class_pattern        |`Point(x,y)`  |✖️|✔️*|✔️†|
 
 \* Only if the component sub-patterns are correspondingly expression-like/target-like
+† If and only if a subpattern does
 
 Looking at this table, a few things stand out:
-* As mentioned before, there's one form of `constant_pattern` that's completely new syntax, so that's bound to raise a few eyebrows. (I'm not saying it's bad, but definitely something that developers will have to get used to)
-* Everything else looks like an expression. But only half the things look like targets. This means that the branches of a `match` statement will look more like values than stuff you assign to. Of the 3 things that don't look like targets (`literal`, `mapping`, and `class`) 2 actually can definitely do binding. That could actually be alleviated by alowing them as targets (which is now a deferred idea)
-* Also some elements are ambiguous (they could be either exp
+1. As mentioned before, there's one form of `constant_pattern` that's completely new syntax, so that's bound to raise a few eyebrows. (I'm not saying it's bad, but definitely something that developers will have to get used to)
+2. Everything else looks like an expression. But only half the things look like targets. This means that the branches of a `match` statement will look more like values than stuff you assign to. Of the 3 things that don't look like targets (`literal`, `mapping`, and `class`) 2 actually can definitely do binding. That could actually be alleviated by alowing them as targets (which is now a deferred idea).
+3. Also some elements are ambiguous (they could be either expressions or targets. In some of those cases (name patterns like `foo`) they actually behave as targets(it's a name to be bound to, not evaluated), in others (like a constant expression `Color.black`) they behave as expressions (denoting a value).
+4. Almost all valid combinations are present in the table above, which I believe feeds the sense of the syntax being "off" or not matching current Python practices.
+
+Assuming that making this table more homogenous is a good thing (I think so, but that's 100% in the land of opinion, not fact), what could be done?
+
+![buttefly meme - confusing patterns with targets](https://imgflip.com/i/46lnzc)
+
+* Making more things to be target-like (by adding these variants to the target syntax, meaning that they would be allowed as an assignment target or looping variables in a `for` loop) certainly would make this table more homogeneity. This is actually mentioned as a deferred idea, and given that we already have some forms of destructuring assignment (being able to nest sequences), it would be surprising to have the mapping versions, and I'd be fine.
+* Adjusting syntax so simple rules can be described (Python currently has "if it looks like an expression
+
+
 
 Other stuff:
  - patterns as runtime objects?
+ 
+ 
+ # Some conclusions
+ 
+ I see that this PEPs try to introduce a few new things:
