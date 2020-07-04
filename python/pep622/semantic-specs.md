@@ -117,6 +117,8 @@ def walrus(o: object) -> Union[Binding, Fail]:
     return {**binding, "𝑁": o}
 ```
 
+Also, FV(𝑁) = {𝑁} ∪ FV(P)
+
 ### Sequence Pattern
 
 Sequence patterns can be "simple" (no `*x` subpattern), or "extended" if it has a `*x` in it. Let's see first the semantics of a simple pattern, which has the form [P₁, P₂, ..., Pₙ] with 𝑛≥0, where each Pᵢ is a pattern. Its semantics are:
@@ -224,6 +226,8 @@ def mapping(o: object) -> Union[Fail, Binding]:
     # If we got here, we have a match
     return binding
 ```
+
+We define FV(𝐸(P₁, P₂, ..., Pₙ, 𝑁₁=KP₁, 𝑁₂=KP₂, ..., 𝑁ₘ=KPₘ)) = FV(P₁) ∪ FV(P₂) ∪ ... ∪ FV(Pₙ) ∪ FV(KP₁) ∪ FV(KP₂) ∪ ... ∪ FV(KPₘ)
 
 ### Or Pattern
 
