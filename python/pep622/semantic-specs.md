@@ -73,27 +73,16 @@ DONE:
 
 ## Semantics of each pattern type
 
-### Literal Pattern
+### Literal and Constant Pattern
 
-A literal pattern consists of a literal 𝐿. Its semantics correspond to this function
-
-```python
-def literal(o: object) -> Union[Binding, Fail]:
-    return {} if o == 𝐿 else Fail
-```
-
-Also, FV(𝐿) = ∅ (the empty set)
-
-### Constant Pattern
-
-A literal pattern consists of an expression 𝐸 (restricted syntactically to a very specific set of expressions). Its semantics correspond to this function
+A literal pattern or a constant pattern consists of an expression 𝐸 (restricted syntactically to a very specific subset of expressions). Its semantics correspond to this function
 
 ```python
-def constant(o: object) -> Union[Binding, Fail]:
+def literal_or_const(o: object) -> Union[Binding, Fail]:
     return {} if o == 𝐸 else Fail
 ```
 
-Also, FV(𝐸) = ∅
+Also, FV(𝐸) = ∅ (the empty set)
 
 ### Wildcard Pattern
 
@@ -117,12 +106,23 @@ def capture(o: object) -> Binding:
 
 Also, FV(𝑁) = {𝑁}
 
+### Walrus Pattern
+
+A walrus pattern has the form 𝑁 := P, where 𝑁 is an identifier and P is a pattern. Its semantics correspond to:
+
+```python
+def walrus(o: object) -> Union[Binding, Fail]:
+    binding = <P>(o)
+    if binding == Fail: return Fail
+    return {**binding, "𝑁": o}
+```
+
 ### Sequence Pattern
 
 Sequence patterns can be "simple" (no `*x` subpattern), or "extended" if it has a `*x` in it. Let's see first the semantics of a simple pattern, which has the form [P₁, P₂, ..., Pₙ] with 𝑛≥0, where each Pᵢ is a pattern. Its semantics are:
 
 ```python
-def capture(o: object) -> Union[Fail, Binding]:
+def sequence(o: object) -> Union[Fail, Binding]:
     if isinstance(o, (str, bytes, bytearray)): return Fail  # These types are forbidden
     if not isinstance(o, collections.abc.Sequence): return Fail
     if len(o) != 𝑛: return Fail
@@ -136,22 +136,22 @@ def capture(o: object) -> Union[Fail, Binding]:
 
 We define FV([P₁, P₂, ..., Pₙ]) = FV(P₁) ∪ FV(P₂) ∪ ... ∪ FV(Pₙ)
 
-Extended matches will be of the form [L₁, L₂, ..., Lₙ, `*`𝑁, R₁, R₂, ..., Rₘ], where 𝑛≥0, 𝑚≥0, and Lᵢ and Rⱼ are patterns. Its semantics are:
+Extended matches will be of the form [L₁, L₂, ..., Lₙ, \*𝑁, R₁, R₂, ..., Rₘ], where 𝑛≥0, 𝑚≥0, and Lᵢ and Rⱼ are patterns. Its semantics are:
 
 ```python
-def capture(o: object) -> Union[Fail, Binding]:
+def sequence(o: object) -> Union[Fail, Binding]:
     if isinstance(o, (str, bytes, bytearray)): return Fail  # These types are forbidden
     if not isinstance(o, collections.abc.Sequence): return Fail
     if len(o) < 𝑛+𝑚: return Fail
     binding = {}
-    # Bind the left
+    # Bind the left side
     for each i in 1, 2, ..., 𝑛:
-        elem_binding = <Pᵢ>(o[i-1])
+        elem_binding = <Lᵢ>(o[i-1])
         if elem_binding == Fail: return Fail
         binding.update(elem_binding)
-    # Bind the right
+    # Bind the right side
     for each i in 1, 2, ..., 𝑚:
-        elem_binding = <Pᵢ>(o[-𝑚+(i-1)])
+        elem_binding = <Rᵢ>(o[-𝑚+(i-1)])
         if elem_binding == Fail: return Fail
         binding.update(elem_binding)
     # bind the middle
@@ -160,10 +160,87 @@ def capture(o: object) -> Union[Fail, Binding]:
     return binding
 ```
 
+We define FV([L₁, L₂, ..., Lₙ, *𝑁, R₁, R₂, ..., Rₘ]) = FV([L₁, L₂, ..., Lₙ]) ∪ FV(𝑁) ∪ FV([R₁, R₂, ..., Rₘ])
 
 ### Mapping Pattern
 
+A mapping pattern has the form {E₁:P₁, E₂:P₂, ..., Eₙ:Pₙ} where 𝑛≥0, each Eᵢ is a (restricted) expression, and each Pᵢ is a pattern. Its semantics correspond to this function:
+
+```python
+def mapping(o: object) -> Union[Fail, Binding]:
+    if not isinstance(o, collections.abc.Mapping): return Fail
+    MISSING = object()  # sentinel for missing keys
+    binding = {}
+    # Bind the left side
+    for each i in 1, 2, ..., 𝑛:
+        val = o.get(Eᵢ, MISSING)
+        if val is MISSING: return Fail
+        elem_binding = <Pᵢ>(val)
+        if elem_binding == Fail: return Fail
+        binding.update(elem_binding)
+    return binding
+```
+
+We define FV({E₁:P₁, E₂:P₂, ..., Eₙ:Pₙ}) = FV(P₁) ∪ FV(P₂) ∪ ... ∪ FV(Pₙ)
+
 ### Class Pattern
+
+A class pattern has the form 𝐸(P₁, P₂, ..., Pₙ, 𝑁₁=KP₁, 𝑁₂=KP₂, ..., 𝑁ₘ=KPₘ), where 𝑛≥0, 𝑚≥0, each Pᵢ is a pattern, each KPⱼ is a pattern and each 𝑁ⱼ is a name.
+𝐸 is a restricted expression. Its semantics correspond to this function:
+
+```python
+def mapping(o: object) -> Union[Fail, Binding]:
+    constructor = 𝐸
+    if not isinstance(o, constructor): return Fail
+    MISSING = object()  # sentinel for missing keys
+    SPECIAL = (bool, bytearray, bytes, dict, float, frozenset, int, list, set, str, tuple)
+    binding = {}
+    # Bind positional args
+    margs = getattr(constructor, "__match_args__", ())
+    if not margs and n > 0:  # Case 1: we have positional args, but no match_args
+        if constructor in SPECIAL and 𝑛==1:  # special cases for builtins with single positional pattern
+            elem_binding = <P₁>(o)  # match full object
+            if elem_binding == Fail: return Fail
+            binding.update(elem_binding)
+        else:
+            raise TypeError
+    elif 𝑛 > len(margs):  # Case 2: We have more positional args than match_args
+        raise TypeError
+    else:  # Case 3: 
+        for each i in 1, 2, ..., 𝑛:
+            attribute = getattr(o, margs[i], MISSING)
+            if attribute is MISSING: return Fail
+            elem_binding = <Pᵢ>(val)
+            if elem_binding == Fail: return Fail
+            binding.update(elem_binding)
+    # Match keyword arguments    
+    for each i in 1, 2, ..., 𝑚:
+        if "𝑁ᵢ" in margs[:𝑛]: raise TypeError("keyword attribute 𝑁ᵢ was already in __match_args__")
+        attribute = getattr(o, "𝑁ᵢ", MISSING)
+        if attribute is MISSING: return Fail
+        elem_binding = <KPᵢ>(attribute)
+        if elem_binding == Fail: return Fail
+        binding.update(elem_binding)
+    # If we got here, we have a match
+    return binding
+```
+
+### Or Pattern
+
+An or pattern has the form P₁ | P₂ | ... | Pₙ where 𝑛≥1, and each Pᵢ is a pattern. Its semantics correspond to this function:
+
+```python
+def or_pattern(o: object) -> Union[Fail, Binding]:
+    for each i in 1, 2, ..., n:
+        binding = <Pᵢ>(o)
+        if binding != Fail:
+            return binding
+    return Fail
+```
+
+We define FV(P₁ | P₂ | ... | Pₙ) = FV(P₁)  ; note that all the subpatterns are guaranteed by syntactic restriction to have the same set of free variables.
 
 ## Caveats about variable binding
 
+For optimization purposes, it's permitted for a pattern matcher to create the bindings corresponding to succesful sub-patterns even if the outer pattern fails
+to match. This description minimizes the binding done.
