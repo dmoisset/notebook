@@ -1,5 +1,7 @@
 # Semantics of the `match` statement in Python
 
+**Note: This article was written during the early drafting of PEP-622. From the time of writing this until PEP-634 was approved, many details changed, so the content of this description is outdated**
+
 This notes will try to accurately describe the semantics of the pattern matching statement proposed in [PEP-622](https://www.python.org/dev/peps/pep-0622/). It does it through pseudocode which mostly looks like accurate python, and "translates" the new constructs to pre-PEP python. This does NOT meen that what I'm showing is the actual implementation. The main goal of this is descriptive, and following this should help you understand the abstract behaviour.
 
 ## Basic definitions
